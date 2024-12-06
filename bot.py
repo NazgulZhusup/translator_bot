@@ -110,13 +110,9 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as e:
         await update.message.reply_text(TEXTS[user_language]["error"])
 
-
+WEBHOOK_URL = "https://https://translator-bot-kxxv.onrender.com/webhook"
 def main():
-    """Основная функция запуска бота"""
-    token = os.getenv("TELEGRAM_TOKEN")  # Получаем токен из переменной окружения
-    if not token:
-        raise ValueError("TELEGRAM_TOKEN environment variable is not set")
-
+    token = os.getenv("TELEGRAM_TOKEN")
     application = Application.builder().token(token).build()
 
     # Обработчики команд
@@ -124,8 +120,13 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, translate_message))
 
-    # Запуск бота
-    application.run_polling()
+    # Установка вебхуков
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 8443)),
+        url_path="webhook",
+        webhook_url=WEBHOOK_URL
+    )
 
 if __name__ == '__main__':
     main()
