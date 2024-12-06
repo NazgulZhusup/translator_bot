@@ -110,7 +110,7 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as e:
         await update.message.reply_text(TEXTS[user_language]["error"])
 
-WEBHOOK_URL = "https://https://translator-bot-kxxv.onrender.com/webhook"
+WEBHOOK_URL = "https://translator-bot-kxxv.onrender.com/webhook"
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
     application = Application.builder().token(token).build()
