@@ -110,6 +110,59 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as e:
         await update.message.reply_text(TEXTS[user_language]["error"])
 
+
+chats = {}
+
+async def start_chat(update, context):
+    """Создать новый чат и получить уникальный код"""
+    user_id = update.message.chat_id
+    if user_id in [chat["user_a"] for chat in chats.values()]:
+        await update.message.reply_text("You have already started a chat.")
+        return
+
+    # Генерация уникального кода чата
+    chat_id = f"CHAT{len(chats) + 1}"
+    chats[chat_id] = {"user_a": user_id, "user_b": None}
+    await update.message.reply_text(f"Your chat code: {chat_id}. Share it with your partner.")
+
+async def connect(update, context):
+    """Подключение пользователя к чату по коду"""
+    user_id = update.message.chat_id
+    if not context.args:
+        await update.message.reply_text("Please provide a chat code. Example: /connect CHAT123")
+        return
+
+    chat_id = context.args[0]
+    if chat_id not in chats:
+        await update.message.reply_text("Invalid chat code.")
+        return
+
+    if chats[chat_id]["user_b"] is not None:
+        await update.message.reply_text("This chat already has two participants.")
+        return
+
+    # Подключение второго пользователя
+    chats[chat_id]["user_b"] = user_id
+    await update.message.reply_text("You have successfully joined the chat!")
+    user_a_id = chats[chat_id]["user_a"]
+    await context.bot.send_message(chat_id=user_a_id, text="Your partner has joined the chat!")
+
+async def relay_message(update, context):
+    """Передача сообщений между пользователями"""
+    user_id = update.message.chat_id
+
+    # Найти чат, в котором участвует пользователь
+    for chat_id, chat in chats.items():
+        if chat["user_a"] == user_id and chat["user_b"] is not None:
+            await context.bot.send_message(chat_id=chat["user_b"], text=update.message.text)
+            return
+        elif chat["user_b"] == user_id and chat["user_a"] is not None:
+            await context.bot.send_message(chat_id=chat["user_a"], text=update.message.text)
+            return
+
+    # Если пользователь не подключён к чату
+    await update.message.reply_text("You are not connected to any chat. Use /start_chat or /connect to begin.")
+
 WEBHOOK_URL = "https://translator-bot-kxxv.onrender.com/webhook"
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
@@ -119,6 +172,9 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, translate_message))
+    application.add_handler(CommandHandler("start_chat", start_chat))
+    application.add_handler(CommandHandler("connect", connect))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, relay_message))
 
     # Установка вебхуков
     application.run_webhook(
