@@ -169,9 +169,9 @@ async def help_command(update, context):
         "Welcome to the chat bot! Here's how you can use it:\n"
         "/start_chat - Create a new chat\n"
         "/connect <code> - Join an existing chat with a code\n"
-        "Simply type a message to start chatting with your partner!"
+        "Simply type a message to start chatting with your partner!")
 
-WEBHOOK_URL = "https://translator-bot-kxxv.onrender.com/webhook"
+
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
     application = Application.builder().token(token).build()
@@ -190,7 +190,7 @@ def main():
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8443)),
         url_path="webhook",
-        webhook_url=WEBHOOK_URL
+        webhook_url="https://translator-bot-kxxv.onrender.com/webhook"
     )
 
 if __name__ == '__main__':
