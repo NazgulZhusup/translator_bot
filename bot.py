@@ -163,6 +163,14 @@ async def relay_message(update, context):
     # Если пользователь не подключён к чату
     await update.message.reply_text("You are not connected to any chat. Use /start_chat or /connect to begin.")
 
+async def help_command(update, context):
+    """Команда /help для объяснения функционала бота"""
+    await update.message.reply_text(
+        "Welcome to the chat bot! Here's how you can use it:\n"
+        "/start_chat - Create a new chat\n"
+        "/connect <code> - Join an existing chat with a code\n"
+        "Simply type a message to start chatting with your partner!"
+
 WEBHOOK_URL = "https://translator-bot-kxxv.onrender.com/webhook"
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
@@ -175,6 +183,7 @@ def main():
     application.add_handler(CommandHandler("start_chat", start_chat))
     application.add_handler(CommandHandler("connect", connect))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, relay_message))
+    application.add_handler(CommandHandler("help", help_command))
 
     # Установка вебхуков
     application.run_webhook(
