@@ -23,6 +23,7 @@ LANGUAGES = {
 }
 
 # Тексты на разных языках
+# Тексты на разных языках
 TEXTS = {
     "en": {
         "start": "Welcome! Please select your language:",
@@ -31,6 +32,8 @@ TEXTS = {
         "not_set": "Please select your language first using the /start command.",
         "translation": "Translation:",
         "error": "An error occurred while translating. Please try again.",
+        "exit_chat": "You have successfully exited the chat.",
+        "no_chat": "You are not currently in any chat.",
     },
     "fr": {
         "start": "Bienvenue! Veuillez sélectionner votre langue :",
@@ -39,6 +42,8 @@ TEXTS = {
         "not_set": "Veuillez d'abord sélectionner votre langue avec la commande /start.",
         "translation": "Traduction :",
         "error": "Une erreur s'est produite lors de la traduction. Veuillez réessayer.",
+        "exit_chat": "Vous avez quitté le chat avec succès.",
+        "no_chat": "Vous n'êtes actuellement dans aucun chat.",
     },
     "es": {
         "start": "¡Bienvenido! Por favor seleccione su idioma:",
@@ -47,6 +52,8 @@ TEXTS = {
         "not_set": "Por favor seleccione su idioma primero usando el comando /start.",
         "translation": "Traducción:",
         "error": "Ocurrió un error al traducir. Por favor intente de nuevo.",
+        "exit_chat": "Has salido del chat con éxito.",
+        "no_chat": "Actualmente no estás en ningún chat.",
     },
     "de": {
         "start": "Willkommen! Bitte wählen Sie Ihre Sprache aus:",
@@ -55,6 +62,8 @@ TEXTS = {
         "not_set": "Bitte wählen Sie zuerst Ihre Sprache mit dem Befehl /start.",
         "translation": "Übersetzung:",
         "error": "Beim Übersetzen ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.",
+        "exit_chat": "Sie haben den Chat erfolgreich verlassen.",
+        "no_chat": "Sie sind derzeit in keinem Chat.",
     },
     "ko": {
         "start": "환영합니다! 언어를 선택하세요:",
@@ -63,6 +72,8 @@ TEXTS = {
         "not_set": "/start 명령어를 사용하여 먼저 언어를 선택하세요.",
         "translation": "번역:",
         "error": "번역 중 오류가 발생했습니다. 다시 시도하세요.",
+        "exit_chat": "채팅을 성공적으로 종료했습니다.",
+        "no_chat": "현재 채팅방에 없습니다.",
     },
     "ru": {
         "start": "Добро пожаловать! Пожалуйста, выберите язык:",
@@ -71,6 +82,8 @@ TEXTS = {
         "not_set": "Пожалуйста, выберите язык с помощью команды /start.",
         "translation": "Перевод:",
         "error": "Произошла ошибка при переводе. Пожалуйста, попробуйте снова.",
+        "exit_chat": "Вы успешно вышли из чата.",
+        "no_chat": "Вы не находитесь в текущем чате.",
     },
     "ky": {
         "start": "Кош келиңиздер! Тилди тандаңыз:",
@@ -79,6 +92,8 @@ TEXTS = {
         "not_set": "Биринчи тилди /start буйругу менен тандаңыз.",
         "translation": "Которуу:",
         "error": "Которууда ката кетти. Кайра аракет кылыңыз.",
+        "exit_chat": "Сиз чаттан ийгиликтүү чыктыңыз.",
+        "no_chat": "Сиз учурда эч кандай чатта жоксуз.",
     },
 }
 
