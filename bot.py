@@ -189,7 +189,20 @@ async def help_command(update, context):
         "Simply type a message to start chatting with your partner!\n\n"
         "Example: /start_chat"
     )
+async def exit_chat(update, context):
+    user_id = update.message.chat_id
+    chat_to_remove = None
 
+    for chat_id, chat in chats.items():
+        if chat["user_a"] == user_id or chat["user_b"] == user_id:
+            chat_to_remove = chat_id
+            break
+
+    if chat_to_remove:
+        del chats[chat_to_remove]
+        await update.message.reply_text(TEXTS["en"]["exit_chat"])
+    else:
+        await update.message.reply_text(TEXTS["en"]["no_chat"])
 # Основная функция
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
@@ -200,6 +213,7 @@ def main():
     application.add_handler(MessageHandler(filters.Regex(f"^({'|'.join(LANGUAGES.keys())})$"), set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CommandHandler("start_chat", start_chat))
+    application.add_handler(CommandHandler("exit_chat", exit_chat))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(CommandHandler("help", help_command))
 
