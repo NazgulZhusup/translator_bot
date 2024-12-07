@@ -76,13 +76,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.chat_id
     user_languages[user_id] = "en"  # Устанавливаем английский по умолчанию
 
+    # Создаём кнопки из доступных языков
     keyboard = [[lang] for lang in LANGUAGES.keys()]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+
     await update.message.reply_text(
         TEXTS["en"]["start"],
         reply_markup=reply_markup
     )
-
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик выбора языка"""
     user_id = update.message.chat_id
@@ -103,7 +104,7 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     text = update.message.text
 
     # Проверяем, установил ли пользователь язык
-    if user_id not in user_languages:
+    if user_id not in user_languages or user_languages[user_id] is None:
         await update.message.reply_text(
             TEXTS["en"]["not_set"]
         )
@@ -111,7 +112,7 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     # Определяем язык пользователя
     user_language = user_languages[user_id]
-    target_language = "en" if user_language != "en" else "fr"  # Для теста переводим на английский или французский
+    target_language = "en" if user_language != "en" else "ru"  # Меняем язык перевода в зависимости от пользователя
 
     # Выполняем перевод
     try:
