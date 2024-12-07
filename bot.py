@@ -1,5 +1,5 @@
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 import os
@@ -106,37 +106,52 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(TEXTS["en"]["choose_language"])
 
 # Перевод и передача сообщений
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_message(update, context):
     user_id = update.message.chat_id
     text = update.message.text
 
-    if user_id not in user_languages or user_languages[user_id] is None:
-        await update.message.reply_text(TEXTS["en"]["not_set"])
-        return
+    if context.user_data.get("waiting_for_chat_code"):
+        chat_code = text
+        if chat_code in chats:
+            if chats[chat_code]["user_b"] is None:
+                chats[chat_code]["user_b"] = user_id
+                await update.message.reply_text("You have successfully joined the chat!")
+                user_a_id = chats[chat_code]["user_a"]
+                await context.bot.send_message(chat_id=user_a_id, text="Your partner has joined the chat!")
+            else:
+                await update.message.reply_text("This chat already has two participants.")
+        else:
+            await update.message.reply_text("Invalid chat code.")
+        context.user_data["waiting_for_chat_code"] = False
+    else:
+        # Обработка обычных сообщений
+        if user_id not in user_languages or user_languages[user_id] is None:
+            await update.message.reply_text(TEXTS["en"]["not_set"])
+            return
 
-    user_language = user_languages[user_id]
-    target_language = "en" if user_language != "en" else "ru"
+        user_language = user_languages[user_id]
+        target_language = "en" if user_language != "en" else "ru"
 
-    # Найти собеседника в чате
-    target_user_id = None
-    for chat_id, chat in chats.items():
-        if chat["user_a"] == user_id:
-            target_user_id = chat["user_b"]
-            break
-        elif chat["user_b"] == user_id:
-            target_user_id = chat["user_a"]
-            break
+        # Найти собеседника в чате
+        target_user_id = None
+        for chat_id, chat in chats.items():
+            if chat["user_a"] == user_id:
+                target_user_id = chat["user_b"]
+                break
+            elif chat["user_b"] == user_id:
+                target_user_id = chat["user_a"]
+                break
 
-    if target_user_id is None:
-        await update.message.reply_text("You are not connected to any chat. Use /start_chat or /connect to begin.")
-        return
+        if target_user_id is None:
+            await update.message.reply_text("You are not connected to any chat. Use /start_chat to begin.")
+            return
 
-    try:
-        translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
-        await context.bot.send_message(chat_id=target_user_id, text=translated_text)
-    except Exception as e:
-        logging.error(f"Translation error: {e}")
-        await update.message.reply_text(TEXTS[user_language]["error"])
+        try:
+            translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
+            await context.bot.send_message(chat_id=target_user_id, text=translated_text)
+        except Exception as e:
+            logging.error(f"Translation error: {e}")
+            await update.message.reply_text(TEXTS[user_language]["error"])
 
 # Создание чата
 async def start_chat(update, context):
@@ -147,28 +162,22 @@ async def start_chat(update, context):
 
     chat_id = f"CHAT{len(chats) + 1}"
     chats[chat_id] = {"user_a": user_id, "user_b": None}
-    await update.message.reply_text(f"Your chat code: {chat_id}. Share it with your partner.")
 
-# Подключение к чату
-async def connect(update, context):
-    user_id = update.message.chat_id
-    if not context.args:
-        await update.message.reply_text("Please provide a chat code. Example: /connect CHAT123")
-        return
+    # Создаем клавиатуру с кнопкой для ввода кода чата
+    keyboard = [
+        [InlineKeyboardButton("Enter Chat Code", callback_data="enter_chat_code")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    chat_id = context.args[0]
-    if chat_id not in chats:
-        await update.message.reply_text("Invalid chat code.")
-        return
+    await update.message.reply_text(f"Your chat code: {chat_id}. Share it with your partner.", reply_markup=reply_markup)
 
-    if chats[chat_id]["user_b"] is not None:
-        await update.message.reply_text("This chat already has two participants.")
-        return
+async def button_handler(update, context):
+    query = update.callback_query
+    await query.answer()
 
-    chats[chat_id]["user_b"] = user_id
-    await update.message.reply_text("You have successfully joined the chat!")
-    user_a_id = chats[chat_id]["user_a"]
-    await context.bot.send_message(chat_id=user_a_id, text="Your partner has joined the chat!")
+    if query.data == "enter_chat_code":
+        await query.message.reply_text("Chat code:")
+        context.user_data["waiting_for_chat_code"] = True
 
 # Помощь
 async def help_command(update, context):
@@ -176,8 +185,9 @@ async def help_command(update, context):
         "Welcome to the chat bot! Here's how you can use it:\n"
         "/start - Set your language\n"
         "/start_chat - Create a new chat\n"
-        "/connect <code> - Join an existing chat with a code\n"
-        "Simply type a message to start chatting with your partner!"
+        "/exit_chat - Exit the current chat\n"
+        "Simply type a message to start chatting with your partner!\n\n"
+        "Example: /start_chat"
     )
 
 # Основная функция
@@ -190,7 +200,7 @@ def main():
     application.add_handler(MessageHandler(filters.Regex(f"^({'|'.join(LANGUAGES.keys())})$"), set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CommandHandler("start_chat", start_chat))
-    application.add_handler(CommandHandler("connect", connect))
+    application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(CommandHandler("help", help_command))
 
     # Запуск вебхуков
