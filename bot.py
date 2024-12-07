@@ -5,8 +5,10 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
+
 # Глобальные переменные
 user_languages = {}  # Словарь для хранения языка каждого пользователя
+chats = {}  # Словарь для хранения информации о чатах
 
 # Доступные языки
 LANGUAGES = {
@@ -71,73 +73,61 @@ TEXTS = {
     },
 }
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /start"""
-    user_id = update.message.chat_id
-    user_languages[user_id] = "en"  # Устанавливаем английский по умолчанию
 
-    # Создаём кнопки из доступных языков
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.message.chat_id
+    user_languages[user_id] = None  # Сбрасываем язык при запуске
+
+    # Клавиатура выбора языков
     keyboard = [[lang] for lang in LANGUAGES.keys()]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
-    await update.message.reply_text(
-        TEXTS["en"]["start"],
-        reply_markup=reply_markup
-    )
+    await update.message.reply_text(TEXTS["en"]["start"], reply_markup=reply_markup)
+
+# Установка языка
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик выбора языка"""
     user_id = update.message.chat_id
     chosen_language = update.message.text
 
     if chosen_language in LANGUAGES:
         user_languages[user_id] = LANGUAGES[chosen_language]
         language_code = LANGUAGES[chosen_language]
-        await update.message.reply_text(
-            TEXTS[language_code]["language_set"].format(chosen_language)
-        )
+        await update.message.reply_text(TEXTS[language_code]["language_set"].format(chosen_language))
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
 
+# Перевод сообщений
 async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Перевод сообщений между пользователями"""
     user_id = update.message.chat_id
     text = update.message.text
 
-    # Проверяем, установил ли пользователь язык
     if user_id not in user_languages or user_languages[user_id] is None:
-        await update.message.reply_text(
-            TEXTS["en"]["not_set"]
-        )
+        await update.message.reply_text(TEXTS["en"]["not_set"])
         return
 
-    # Определяем язык пользователя
     user_language = user_languages[user_id]
-    target_language = "en" if user_language != "en" else "ru"  # Меняем язык перевода в зависимости от пользователя
+    target_language = "en" if user_language != "en" else "ru"
 
-    # Выполняем перевод
     try:
         translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
         await update.message.reply_text(f"{TEXTS[user_language]['translation']} {translated_text}")
     except Exception as e:
         await update.message.reply_text(TEXTS[user_language]["error"])
 
-
-chats = {}
-
+# Создание чата
 async def start_chat(update, context):
-    """Создать новый чат и получить уникальный код"""
     user_id = update.message.chat_id
     if user_id in [chat["user_a"] for chat in chats.values()]:
         await update.message.reply_text("You have already started a chat.")
         return
 
-    # Генерация уникального кода чата
     chat_id = f"CHAT{len(chats) + 1}"
     chats[chat_id] = {"user_a": user_id, "user_b": None}
     await update.message.reply_text(f"Your chat code: {chat_id}. Share it with your partner.")
 
+# Подключение к чату
 async def connect(update, context):
-    """Подключение пользователя к чату по коду"""
     user_id = update.message.chat_id
     if not context.args:
         await update.message.reply_text("Please provide a chat code. Example: /connect CHAT123")
@@ -152,17 +142,15 @@ async def connect(update, context):
         await update.message.reply_text("This chat already has two participants.")
         return
 
-    # Подключение второго пользователя
     chats[chat_id]["user_b"] = user_id
     await update.message.reply_text("You have successfully joined the chat!")
     user_a_id = chats[chat_id]["user_a"]
     await context.bot.send_message(chat_id=user_a_id, text="Your partner has joined the chat!")
 
-async def relay_message(update, context):
-    """Передача сообщений между пользователями"""
+# Передача сообщений
+async def relay_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.chat_id
 
-    # Найти чат, в котором участвует пользователь
     for chat_id, chat in chats.items():
         if chat["user_a"] == user_id and chat["user_b"] is not None:
             await context.bot.send_message(chat_id=chat["user_b"], text=update.message.text)
@@ -171,32 +159,33 @@ async def relay_message(update, context):
             await context.bot.send_message(chat_id=chat["user_a"], text=update.message.text)
             return
 
-    # Если пользователь не подключён к чату
     await update.message.reply_text("You are not connected to any chat. Use /start_chat or /connect to begin.")
 
+# Помощь
 async def help_command(update, context):
-    """Команда /help для объяснения функционала бота"""
     await update.message.reply_text(
         "Welcome to the chat bot! Here's how you can use it:\n"
+        "/start - Set your language\n"
         "/start_chat - Create a new chat\n"
         "/connect <code> - Join an existing chat with a code\n"
-        "Simply type a message to start chatting with your partner!")
+        "Simply type a message to start chatting with your partner!"
+    )
 
-
+# Основная функция
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
     application = Application.builder().token(token).build()
 
     # Обработчики команд
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_language))
+    application.add_handler(MessageHandler(filters.Regex(f"^({'|'.join(LANGUAGES.keys())})$"), set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, translate_message))
     application.add_handler(CommandHandler("start_chat", start_chat))
     application.add_handler(CommandHandler("connect", connect))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, relay_message))
     application.add_handler(CommandHandler("help", help_command))
 
-    # Установка вебхуков
+    # Запуск вебхуков
     application.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8443)),
@@ -204,5 +193,5 @@ def main():
         webhook_url="https://translator-bot-kxxv.onrender.com/webhook"
     )
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
