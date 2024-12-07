@@ -3,6 +3,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, ContextTyp
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 import os
+import logging
 
 load_dotenv()
 
@@ -62,7 +63,6 @@ TEXTS = {
         "translation": "번역:",
         "error": "번역 중 오류가 발생했습니다. 다시 시도하세요.",
     },
-
     "ru": {
         "start": "Добро пожаловать! Пожалуйста, выберите язык:",
         "language_set": "Ваш язык установлен на {}. Теперь отправьте сообщение, и я переведу его для вашего собеседника.",
@@ -72,7 +72,6 @@ TEXTS = {
         "error": "Произошла ошибка при переводе. Пожалуйста, попробуйте снова.",
     },
 }
-
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -97,8 +96,8 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
 
-# Перевод сообщений
-async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Перевод и передача сообщений
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.chat_id
     text = update.message.text
 
@@ -109,16 +108,31 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user_language = user_languages[user_id]
     target_language = "en" if user_language != "en" else "ru"
 
+    # Найти собеседника в чате
+    target_user_id = None
+    for chat_id, chat in chats.items():
+        if chat["user_a"] == user_id:
+            target_user_id = chat["user_b"]
+            break
+        elif chat["user_b"] == user_id:
+            target_user_id = chat["user_a"]
+            break
+
+    if target_user_id is None:
+        await update.message.reply_text("You are not connected to any chat. Use /start_chat or /connect to begin.")
+        return
+
     try:
         translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
         await context.bot.send_message(chat_id=target_user_id, text=translated_text)
     except Exception as e:
+        logging.error(f"Translation error: {e}")
         await update.message.reply_text(TEXTS[user_language]["error"])
 
 # Создание чата
 async def start_chat(update, context):
     user_id = update.message.chat_id
-    if user_id in [chat["user_a"] for chat in chats.values()]:
+    if any(user_id in (chat["user_a"], chat["user_b"]) for chat in chats.values()):
         await update.message.reply_text("You have already started a chat.")
         return
 
@@ -147,20 +161,6 @@ async def connect(update, context):
     user_a_id = chats[chat_id]["user_a"]
     await context.bot.send_message(chat_id=user_a_id, text="Your partner has joined the chat!")
 
-# Передача сообщений
-async def relay_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.chat_id
-
-    for chat_id, chat in chats.items():
-        if chat["user_a"] == user_id and chat["user_b"] is not None:
-            await context.bot.send_message(chat_id=chat["user_b"], text=update.message.text)
-            return
-        elif chat["user_b"] == user_id and chat["user_a"] is not None:
-            await context.bot.send_message(chat_id=chat["user_a"], text=update.message.text)
-            return
-
-    await update.message.reply_text("You are not connected to any chat. Use /start_chat or /connect to begin.")
-
 # Помощь
 async def help_command(update, context):
     await update.message.reply_text(
@@ -179,10 +179,9 @@ def main():
     # Обработчики команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Regex(f"^({'|'.join(LANGUAGES.keys())})$"), set_language))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, translate_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CommandHandler("start_chat", start_chat))
     application.add_handler(CommandHandler("connect", connect))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, relay_message))
     application.add_handler(CommandHandler("help", help_command))
 
     # Запуск вебхуков
