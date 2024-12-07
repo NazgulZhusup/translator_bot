@@ -111,7 +111,7 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     try:
         translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
-        await update.message.reply_text(f"{TEXTS[user_language]['translation']} {translated_text}")
+        await context.bot.send_message(chat_id=target_user_id, text=translated_text)
     except Exception as e:
         await update.message.reply_text(TEXTS[user_language]["error"])
 
