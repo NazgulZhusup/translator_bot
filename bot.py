@@ -34,6 +34,8 @@ TEXTS = {
         "chat_joined": "You have successfully joined the chat!",
         "chat_already_full": "This chat already has two participants.",
         "invalid_chat_code": "Invalid chat code.",
+        "already_in_chat": "You are already in a chat. Use /exit_chat to leave the current chat.",
+        "chat_not_found": "Chat not found. Please check the chat code and try again.",
     },
     "fr": {
         "start": "Bienvenue! Veuillez sélectionner votre langue :",
@@ -49,6 +51,8 @@ TEXTS = {
         "chat_joined": "Vous avez rejoint le chat avec succès!",
         "chat_already_full": "Ce chat a déjà deux participants.",
         "invalid_chat_code": "Code de chat invalide.",
+        "already_in_chat": "Vous êtes déjà dans un chat. Utilisez /exit_chat pour quitter le chat actuel.",
+        "chat_not_found": "Chat introuvable. Veuillez vérifier le code de chat et réessayer.",
     },
     "es": {
         "start": "¡Bienvenido! Por favor seleccione su idioma:",
@@ -64,6 +68,8 @@ TEXTS = {
         "chat_joined": "¡Has unido el chat con éxito!",
         "chat_already_full": "Este chat ya tiene dos participantes.",
         "invalid_chat_code": "Código de chat inválido.",
+        "already_in_chat": "Ya estás en un chat. Usa /exit_chat para salir del chat actual.",
+        "chat_not_found": "Chat no encontrado. Por favor verifique el código de chat y vuelva a intentarlo.",
     },
     "de": {
         "start": "Willkommen! Bitte wählen Sie Ihre Sprache aus:",
@@ -79,6 +85,8 @@ TEXTS = {
         "chat_joined": "Sie haben den Chat erfolgreich beigetreten!",
         "chat_already_full": "Dieser Chat hat bereits zwei Teilnehmer.",
         "invalid_chat_code": "Ungültiger Chat-Code.",
+        "already_in_chat": "Sie sind bereits in einem Chat. Verwenden Sie /exit_chat, um den aktuellen Chat zu verlassen.",
+        "chat_not_found": "Chat nicht gefunden. Bitte überprüfen Sie den Chat-Code und versuchen Sie es erneut.",
     },
     "ko": {
         "start": "환영합니다! 언어를 선택하세요:",
@@ -94,6 +102,8 @@ TEXTS = {
         "chat_joined": "채팅에 성공적으로 참여했습니다!",
         "chat_already_full": "이 채팅에는 이미 두 명의 참가자가 있습니다.",
         "invalid_chat_code": "유효하지 않은 채팅 코드입니다.",
+        "already_in_chat": "이미 채팅방에 있습니다. 현재 채팅방을 나가려면 /exit_chat을 사용하세요.",
+        "chat_not_found": "채팅을 찾을 수 없습니다. 채팅 코드를 확인하고 다시 시도하세요.",
     },
     "ru": {
         "start": "Добро пожаловать! Пожалуйста, выберите язык:",
@@ -109,6 +119,8 @@ TEXTS = {
         "chat_joined": "Вы успешно присоединились к чату!",
         "chat_already_full": "В этом чате уже есть два участника.",
         "invalid_chat_code": "Неверный код чата.",
+        "already_in_chat": "Вы уже находитесь в чате. Используйте /exit_chat, чтобы покинуть текущий чат.",
+        "chat_not_found": "Чат не найден. Пожалуйста, проверьте код чата и попробуйте снова.",
     },
     "ky": {
         "start": "Кош келиңиздер! Тилди тандаңыз:",
@@ -124,6 +136,8 @@ TEXTS = {
         "chat_joined": "Сиз чатка ийгиликтүү кошулдуңуз!",
         "chat_already_full": "Бул чатта эки өнөктөш бар.",
         "invalid_chat_code": "Жараксыз чат коду.",
+        "already_in_chat": "Сиз азырча чатта жоксуз. Азыркы чаттан чыгуу үчүн /exit_chat колдонуңуз.",
+        "chat_not_found": "Чат табылган жок. Чат кодун текшерип, кайра аракет кылыңыз.",
     },
 }
 
@@ -136,7 +150,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [[lang] for lang in LANGUAGES.keys()]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
-    await update.message.reply_text(TEXTS["en"]["start"], reply_markup=reply_markup)
+    try:
+        await update.message.reply_text(TEXTS["en"]["start"], reply_markup=reply_markup)
+    except Exception as e:
+        logging.error(f"Error sending message: {e}")
 
 # Установка языка
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -202,7 +219,7 @@ async def handle_message(update, context):
 async def start_chat(update, context):
     user_id = update.message.chat_id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
-        await update.message.reply_text("You have already started a chat.")
+        await update.message.reply_text(TEXTS["en"]["already_in_chat"])
         return
 
     chat_id = f"CHAT{len(context.bot_data.get('chats', {})) + 1}"
@@ -210,21 +227,17 @@ async def start_chat(update, context):
         context.bot_data["chats"] = {}
     context.bot_data["chats"][chat_id] = {"user_a": user_id, "user_b": None}
 
-    # Создаем клавиатуру с кнопкой для ввода кода чата
-    keyboard = [
-        [InlineKeyboardButton("Enter Chat Code", callback_data="enter_chat_code")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(TEXTS["en"]["chat_created"].format(chat_id))
 
-    await update.message.reply_text(TEXTS["en"]["chat_created"].format(chat_id), reply_markup=reply_markup)
+# Подключение к чату
+async def join_chat(update, context):
+    user_id = update.message.chat_id
+    if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
+        await update.message.reply_text(TEXTS["en"]["already_in_chat"])
+        return
 
-async def button_handler(update, context):
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "enter_chat_code":
-        await query.message.reply_text(TEXTS["en"]["enter_chat_code"])
-        context.user_data["waiting_for_chat_code"] = True
+    await update.message.reply_text(TEXTS["en"]["enter_chat_code"])
+    context.user_data["waiting_for_chat_code"] = True
 
 # Помощь
 async def help_command(update, context):
@@ -232,6 +245,7 @@ async def help_command(update, context):
         "Welcome to the chat bot! Here's how you can use it:\n"
         "/start - Set your language\n"
         "/start_chat - Create a new chat\n"
+        "/join_chat - Join an existing chat\n"
         "/exit_chat - Exit the current chat\n"
         "Simply type a message to start chatting with your partner!\n\n"
         "Example: /start_chat"
@@ -262,8 +276,8 @@ def main():
     application.add_handler(MessageHandler(filters.Regex(f"^({'|'.join(LANGUAGES.keys())})$"), set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CommandHandler("start_chat", start_chat))
+    application.add_handler(CommandHandler("join_chat", join_chat))
     application.add_handler(CommandHandler("exit_chat", exit_chat))
-    application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(CommandHandler("help", help_command))
 
     # Запуск вебхуков
