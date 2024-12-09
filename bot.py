@@ -167,48 +167,52 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
 
-# Перевод и передача сообщений
+
 # ... (previous code remains the same until handle_message)
 
-# Перевод и передача сообщений
 async def handle_message(update, context):
     user_id = update.message.chat_id
     text = update.message.text
 
     if context.user_data.get("waiting_for_chat_code"):
-        # ... (code for handling chat code input remains the same)
+        await handle_chat_code_input(update, context)
+        return
+
+    # Обработка обычных сообщений
+    user_language = context.user_data.get("language")
+    if user_language is None:
+        await update.message.reply_text(TEXTS["en"]["not_set"])
+        return
+
+    # Найти чат, в котором состоит пользователь
+    chat_data = None
+    for chat_id, chat in context.bot_data.get("chats", {}).items():
+        if chat["user_a"] == user_id or chat["user_b"] == user_id:
+            chat_data = chat
+            break
+
+    if not chat_data:
+        await update.message.reply_text(TEXTS[user_language]["no_chat"])
+        return
+
+    # Определить получателя
+    if chat_data["user_a"] == user_id:
+        target_user_id = chat_data["user_b"]
+        target_language = chat_data.get("user_b_language", "en")
     else:
-        # Обработка обычных сообщений
-        user_language = context.user_data.get("language")
-        if user_language is None:
-            await update.message.reply_text(TEXTS["en"]["not_set"])
-            return
+        target_user_id = chat_data["user_a"]
+        target_language = chat_data.get("user_a_language", "en")
 
-        # Найти чат, в котором состоит пользователь
-        chat_data = None
-        for chat_id, chat in context.bot_data.get("chats", {}).items():
-            if chat["user_a"] == user_id or chat["user_b"] == user_id:
-                chat_data = chat
-                break
+    if target_user_id is None:
+        await update.message.reply_text(TEXTS[user_language]["no_chat"])
+        return
 
-        if not chat_data:
-            await update.message.reply_text(TEXTS[user_language]["no_chat"])
-            return
-
-        # Определить получателя
-        target_user_id = chat_data["user_b"] if chat_data["user_a"] == user_id else chat_data["user_a"]
-        target_language = context.user_data.get(f"chat_{chat_id}_partner_language")
-
-        if target_language is None:
-            await update.message.reply_text(TEXTS[user_language]["error"])
-            return
-
-        try:
-            translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
-            await context.bot.send_message(chat_id=target_user_id, text=translated_text)
-        except Exception as e:
-            logging.error(f"Translation error: {e}")
-            await update.message.reply_text(TEXTS[user_language]["error"])
+    try:
+        translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
+        await context.bot.send_message(chat_id=target_user_id, text=translated_text)
+    except Exception as e:
+        logging.error(f"Translation error: {e}")
+        await update.message.reply_text(TEXTS[user_language]["error"])
 
 # Создание чата
 async def start_chat(update, context):
@@ -220,10 +224,13 @@ async def start_chat(update, context):
     chat_id = f"CHAT{len(context.bot_data.get('chats', {})) + 1}"
     if "chats" not in context.bot_data:
         context.bot_data["chats"] = {}
-    context.bot_data["chats"][chat_id] = {"user_a": user_id, "user_b": None, "user_a_language": context.user_data.get("language", "en")}
+    context.bot_data["chats"][chat_id] = {
+        "user_a": user_id,
+        "user_b": None,
+        "user_a_language": context.user_data.get("language", "en")
+    }
 
     await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_created"].format(chat_id))
-
 # Подключение к чату
 async def join_chat(update, context):
     user_id = update.message.chat_id
@@ -236,14 +243,16 @@ async def join_chat(update, context):
 
 # Обработчик ввода кода чата
 async def handle_chat_code_input(update, context):
+    if not context.user_data.get("waiting_for_chat_code"):
+        return
     chat_code = update.message.text
     if chat_code in context.bot_data.get("chats", {}):
         chat = context.bot_data["chats"][chat_code]
         if chat["user_b"] is None:
             chat["user_b"] = update.message.chat_id
-            context.bot_data[f"chat_{chat_code}_partner_language"] = context.user_data.get("language", "en")
+            chat["user_b_language"] = context.user_data.get("language", "en")
             await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_joined"])
-            await context.bot.send_message(chat_id=chat["user_a"], text=TEXTS[context.user_data.get("language", "en")]["partner_joined"])
+            await context.bot.send_message(chat_id=chat["user_a"], text=TEXTS[chat["user_a_language"]]["partner_joined"])
         else:
             await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_already_full"])
     else:
@@ -294,7 +303,7 @@ def main():
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8443)),
         url_path="webhook",
-        webhook_url="https://yourapp.onrender.com/webhook"
+        webhook_url="https://translator-bot-kxxv.onrender.com"
     )
 
 if __name__ == "__main__":
