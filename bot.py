@@ -168,44 +168,39 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(TEXTS["en"]["choose_language"])
 
 # Перевод и передача сообщений
+# ... (previous code remains the same until handle_message)
+
+# Перевод и передача сообщений
 async def handle_message(update, context):
     user_id = update.message.chat_id
     text = update.message.text
 
     if context.user_data.get("waiting_for_chat_code"):
-        chat_code = text
-        if chat_code in context.bot_data.get("chats", {}):
-            if context.bot_data["chats"][chat_code]["user_b"] is None:
-                context.bot_data["chats"][chat_code]["user_b"] = user_id
-                await update.message.reply_text(TEXTS["en"]["chat_joined"])
-                user_a_id = context.bot_data["chats"][chat_code]["user_a"]
-                await context.bot.send_message(chat_id=user_a_id, text="Your partner has joined the chat!")
-            else:
-                await update.message.reply_text(TEXTS["en"]["chat_already_full"])
-        else:
-            await update.message.reply_text(TEXTS["en"]["invalid_chat_code"])
-        context.user_data["waiting_for_chat_code"] = False
+        # ... (code for handling chat code input remains the same)
     else:
         # Обработка обычных сообщений
-        if context.user_data.get("language") is None:
+        user_language = context.user_data.get("language")
+        if user_language is None:
             await update.message.reply_text(TEXTS["en"]["not_set"])
             return
 
-        user_language = context.user_data["language"]
-        target_language = "en" if user_language != "en" else "ru"
-
-        # Найти собеседника в чате
-        target_user_id = None
+        # Найти чат, в котором состоит пользователь
+        chat_data = None
         for chat_id, chat in context.bot_data.get("chats", {}).items():
-            if chat["user_a"] == user_id:
-                target_user_id = chat["user_b"]
-                break
-            elif chat["user_b"] == user_id:
-                target_user_id = chat["user_a"]
+            if chat["user_a"] == user_id or chat["user_b"] == user_id:
+                chat_data = chat
                 break
 
-        if target_user_id is None:
-            await update.message.reply_text("You are not connected to any chat. Use /start_chat to begin.")
+        if not chat_data:
+            await update.message.reply_text(TEXTS[user_language]["no_chat"])
+            return
+
+        # Определить получателя
+        target_user_id = chat_data["user_b"] if chat_data["user_a"] == user_id else chat_data["user_a"]
+        target_language = context.user_data.get(f"chat_{chat_id}_partner_language")
+
+        if target_language is None:
+            await update.message.reply_text(TEXTS[user_language]["error"])
             return
 
         try:
@@ -219,52 +214,66 @@ async def handle_message(update, context):
 async def start_chat(update, context):
     user_id = update.message.chat_id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
-        await update.message.reply_text(TEXTS["en"]["already_in_chat"])
+        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
 
     chat_id = f"CHAT{len(context.bot_data.get('chats', {})) + 1}"
     if "chats" not in context.bot_data:
         context.bot_data["chats"] = {}
-    context.bot_data["chats"][chat_id] = {"user_a": user_id, "user_b": None}
+    context.bot_data["chats"][chat_id] = {"user_a": user_id, "user_b": None, "user_a_language": context.user_data.get("language", "en")}
 
-    await update.message.reply_text(TEXTS["en"]["chat_created"].format(chat_id))
+    await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_created"].format(chat_id))
 
 # Подключение к чату
 async def join_chat(update, context):
     user_id = update.message.chat_id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
-        await update.message.reply_text(TEXTS["en"]["already_in_chat"])
+        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
 
-    await update.message.reply_text(TEXTS["en"]["enter_chat_code"])
+    await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["enter_chat_code"])
     context.user_data["waiting_for_chat_code"] = True
 
-# Помощь
+# Обработчик ввода кода чата
+async def handle_chat_code_input(update, context):
+    chat_code = update.message.text
+    if chat_code in context.bot_data.get("chats", {}):
+        chat = context.bot_data["chats"][chat_code]
+        if chat["user_b"] is None:
+            chat["user_b"] = update.message.chat_id
+            context.bot_data[f"chat_{chat_code}_partner_language"] = context.user_data.get("language", "en")
+            await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_joined"])
+            await context.bot.send_message(chat_id=chat["user_a"], text=TEXTS[context.user_data.get("language", "en")]["partner_joined"])
+        else:
+            await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_already_full"])
+    else:
+        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
+    context.user_data["waiting_for_chat_code"] = False
+
+# Команда /exit_chat
+async def exit_chat(update, context):
+    user_id = update.message.chat_id
+    chat_to_remove = None
+    for chat_id, chat in context.bot_data.get("chats", {}).items():
+        if chat["user_a"] == user_id or chat["user_b"] == user_id:
+            chat_to_remove = chat_id
+            break
+    if chat_to_remove:
+        del context.bot_data["chats"][chat_to_remove]
+        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["exit_chat"])
+    else:
+        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["no_chat"])
+
 async def help_command(update, context):
     await update.message.reply_text(
         "Welcome to the chat bot! Here's how you can use it:\n"
         "/start - Set your language\n"
         "/start_chat - Create a new chat\n"
-        "/join_chat - Join an existing chat\n"
+        "/join_chat - Enter a chat code to join an existing chat\n"
         "/exit_chat - Exit the current chat\n"
         "Simply type a message to start chatting with your partner!\n\n"
         "Example: /start_chat"
     )
-
-async def exit_chat(update, context):
-    user_id = update.message.chat_id
-    chat_to_remove = None
-
-    for chat_id, chat in context.bot_data.get("chats", {}).items():
-        if chat["user_a"] == user_id or chat["user_b"] == user_id:
-            chat_to_remove = chat_id
-            break
-
-    if chat_to_remove:
-        del context.bot_data["chats"][chat_to_remove]
-        await update.message.reply_text(TEXTS["en"]["exit_chat"])
-    else:
-        await update.message.reply_text(TEXTS["en"]["no_chat"])
 
 # Основная функция
 def main():
@@ -285,7 +294,7 @@ def main():
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8443)),
         url_path="webhook",
-        webhook_url="https://translator-bot-kxxv.onrender.com/webhook"
+        webhook_url="https://yourapp.onrender.com/webhook"
     )
 
 if __name__ == "__main__":
