@@ -178,30 +178,26 @@ async def handle_message(update, context):
         await handle_chat_code_input(update, context)
         return
 
-    # Обработка обычных сообщений
     user_language = context.user_data.get("language")
     if user_language is None:
         await update.message.reply_text(TEXTS["en"]["not_set"])
         return
 
-    # Найти чат, в котором состоит пользователь
-    chat_data = None
-    for chat_id, chat in context.bot_data.get("chats", {}).items():
-        if chat["user_a"] == user_id or chat["user_b"] == user_id:
-            chat_data = chat
-            break
+    chat_data = next((chat for chat in context.bot_data.get("chats", {}).values()
+                      if chat["user_a"] == user_id or chat["user_b"] == user_id), None)
 
     if not chat_data:
         await update.message.reply_text(TEXTS[user_language]["no_chat"])
         return
 
-    # Определить получателя
     if chat_data["user_a"] == user_id:
         target_user_id = chat_data["user_b"]
         target_language = chat_data.get("user_b_language", "en")
     else:
         target_user_id = chat_data["user_a"]
         target_language = chat_data.get("user_a_language", "en")
+
+    logging.info(f"User Language: {user_language}, Target Language: {target_language}, Target User ID: {target_user_id}")
 
     if target_user_id is None:
         await update.message.reply_text(TEXTS[user_language]["no_chat"])
@@ -213,7 +209,6 @@ async def handle_message(update, context):
     except Exception as e:
         logging.error(f"Translation error: {e}")
         await update.message.reply_text(TEXTS[user_language]["error"])
-
 # Создание чата
 async def start_chat(update, context):
     user_id = update.message.chat_id
