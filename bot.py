@@ -2,6 +2,7 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
+import random
 import os
 import logging
 
@@ -166,9 +167,7 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(TEXTS[language_code]["language_set"].format(chosen_language))
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
-
-
-# ... (previous code remains the same until handle_message)
+    await start(update, context)
 
 async def handle_message(update, context):
     user_id = update.message.chat_id
@@ -210,23 +209,26 @@ async def handle_message(update, context):
         logging.error(f"Translation error: {e}")
         await update.message.reply_text(TEXTS[user_language]["error"])
 # Создание чата
+
+
 async def start_chat(update, context):
     user_id = update.message.chat_id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
 
-    chat_id = f"CHAT{len(context.bot_data.get('chats', {})) + 1}"
+    chat_code = f"{random.randint(0, 9999):04d}"  # Генерация 4-значного кода
+
     if "chats" not in context.bot_data:
         context.bot_data["chats"] = {}
-    context.bot_data["chats"][chat_id] = {
+    context.bot_data["chats"][chat_code] = {
         "user_a": user_id,
         "user_b": None,
         "user_a_language": context.user_data.get("language", "en")
     }
 
-    await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_created"].format(chat_id))
-# Подключение к чату
+    await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_created"].format(chat_code))
+
 async def join_chat(update, context):
     user_id = update.message.chat_id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
@@ -240,7 +242,14 @@ async def join_chat(update, context):
 async def handle_chat_code_input(update, context):
     if not context.user_data.get("waiting_for_chat_code"):
         return
+
     chat_code = update.message.text
+
+    # Проверка, что чат-код состоит только из цифр и имеет длину 4 символа
+    if not chat_code.isdigit() or len(chat_code) != 4:
+        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
+        return
+
     if chat_code in context.bot_data.get("chats", {}):
         chat = context.bot_data["chats"][chat_code]
         if chat["user_b"] is None:
@@ -252,8 +261,8 @@ async def handle_chat_code_input(update, context):
             await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_already_full"])
     else:
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
-    context.user_data["waiting_for_chat_code"] = False
 
+    context.user_data["waiting_for_chat_code"] = False
 # Команда /exit_chat
 async def exit_chat(update, context):
     user_id = update.message.chat_id
