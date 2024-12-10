@@ -53,7 +53,7 @@ TEXTS = {
         "chat_already_full": "Ce chat a déjà deux participants.",
         "invalid_chat_code": "Code de chat invalide.",
         "already_in_chat": "Vous êtes déjà dans un chat. Utilisez /exit_chat pour quitter le chat actuel.",
-        "chat_not_found": "Chat introuvable. Veuillez vérifier le code de chat et réessayer.",
+        "chat_not_found": "Chat introuvable. Veuillez vérifier le code de chat и réessayer.",
     },
     "es": {
         "start": "¡Bienvenido! Por favor seleccione su idioma:",
@@ -167,7 +167,7 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(TEXTS[language_code]["language_set"].format(chosen_language))
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
-    
+
 
 async def handle_message(update, context):
     user_id = update.message.chat_id
