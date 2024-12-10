@@ -1,5 +1,5 @@
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 import random
@@ -21,7 +21,7 @@ LANGUAGES = {
 TEXTS = {
     "en": {
         "start": "Welcome! Please select your language:",
-        "language_set": "Your language has been set to {}. Now send a message, and I will translate it for your partner.",
+        "language_set": "Your language has been set to {}. Now open a new chat and get or enter the obtained chat code so that you can find a partner.",
         "choose_language": "Please select a language from the list.",
         "not_set": "Please select your language first using the /start command.",
         "translation": "Translation:",
@@ -39,7 +39,7 @@ TEXTS = {
     },
     "fr": {
         "start": "Bienvenue! Veuillez sélectionner votre langue :",
-        "language_set": "Votre langue a été définie sur {}. Envoyez un message, et je le traduirai pour votre partenaire.",
+        "language_set": "Votre langue a été définie sur {}. Maintenant, ouvrez un nouveau chat et obtenez ou saisissez le code de chat obtenu afin de trouver un partenaire.",
         "choose_language": "Veuillez sélectionner une langue dans la liste.",
         "not_set": "Veuillez d'abord sélectionner votre langue avec la commande /start.",
         "translation": "Traduction :",
@@ -57,7 +57,7 @@ TEXTS = {
     },
     "es": {
         "start": "¡Bienvenido! Por favor seleccione su idioma:",
-        "language_set": "Su idioma ha sido configurado como {}. Ahora envíe un mensaje y lo traduciré para su compañero.",
+        "language_set": "Su idioma ha sido configurado como {}. Ahora abra un nuevo chat y obtenga o introduzca el código de chat obtenido para que pueda encontrar un compañero.",
         "choose_language": "Por favor seleccione un idioma de la lista.",
         "not_set": "Por favor seleccione su idioma primero usando el comando /start.",
         "translation": "Traducción:",
@@ -75,7 +75,7 @@ TEXTS = {
     },
     "de": {
         "start": "Willkommen! Bitte wählen Sie Ihre Sprache aus:",
-        "language_set": "Ihre Sprache wurde auf {} eingestellt. Senden Sie jetzt eine Nachricht, und ich werde sie für Ihren Partner übersetzen.",
+        "language_set": "Ihre Sprache wurde auf {} eingestellt. Jetzt öffnen Sie einen neuen Chat und erhalten oder geben Sie den erhaltenen Chat-Code ein, damit Sie einen Partner finden können.",
         "choose_language": "Bitte wählen Sie eine Sprache aus der Liste.",
         "not_set": "Bitte wählen Sie zuerst Ihre Sprache mit dem Befehl /start.",
         "translation": "Übersetzung:",
@@ -93,7 +93,7 @@ TEXTS = {
     },
     "ko": {
         "start": "환영합니다! 언어를 선택하세요:",
-        "language_set": "언어가 {}로 설정되었습니다. 이제 메시지를 보내면 번역해 드리겠습니다.",
+        "language_set": "언어가 {}로 설정되었습니다. 이제 새로운 채팅을 열고 받은 채팅 코드를 확인하거나 입력하여 대화를 나눌 상대를 찾으세요.",
         "choose_language": "목록에서 언어를 선택하세요.",
         "not_set": "/start 명령어를 사용하여 먼저 언어를 선택하세요.",
         "translation": "번역:",
@@ -111,7 +111,7 @@ TEXTS = {
     },
     "ru": {
         "start": "Добро пожаловать! Пожалуйста, выберите язык:",
-        "language_set": "Ваш язык установлен на {}. Теперь отправьте сообщение, и я переведу его для вашего собеседника.",
+        "language_set": "Ваш язык установлен на {}. Теперь откройте новый чат и получите или введите полученный чат-код, чтобы вы могли найти собеседника.",
         "choose_language": "Пожалуйста, выберите язык из списка.",
         "not_set": "Пожалуйста, выберите язык с помощью команды /start.",
         "translation": "Перевод:",
@@ -129,7 +129,7 @@ TEXTS = {
     },
     "ky": {
         "start": "Кош келиңиздер! Тилди тандаңыз:",
-        "language_set": "Сиздин тилиңиз {} болуп орнотулду. Эми билдирүү жөнөтүңүз, мен аны өнөктөшүңүз үчүн которуп берем.",
+        "language_set": "Сиздин тилиңиз {} болуп орнотулду. Эми жаңы чат ачыңыз жана алынган чат-кодду алыңыз же киргизиңиз, ошондо сиз собеседник таба аласыз.",
         "choose_language": "Тизмеден тилди тандаңыз.",
         "not_set": "Биринчи тилди /start буйругу менен тандаңыз.",
         "translation": "Которуу:",
@@ -175,7 +175,7 @@ async def handle_message(update, context):
         await update.message.reply_text(TEXTS["en"]["not_set"])
         return
 
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
     chat_data = next((chat for chat in context.bot_data.get("chats", {}).values()
                       if chat["user_a"] == user_id or chat["user_b"] == user_id), None)
     if not chat_data:
@@ -202,7 +202,7 @@ async def handle_message(update, context):
         await update.message.reply_text(TEXTS[user_language]["error"])
 
 async def start_chat(update, context):
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
@@ -217,7 +217,7 @@ async def start_chat(update, context):
     await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_created"].format(chat_code))
 
 async def join_chat(update, context):
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
@@ -229,25 +229,31 @@ async def handle_chat_code_input(update, context):
         return
 
     chat_code = update.message.text
+    user_language = context.user_data.get("language", "en")
+
     if not chat_code.isdigit() or len(chat_code) != 4:
-        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
+        await update.message.reply_text(TEXTS[user_language]["invalid_chat_code"])
+        context.user_data["waiting_for_chat_code"] = False
         return
 
     if chat_code in context.bot_data.get("chats", {}):
         chat = context.bot_data["chats"][chat_code]
         if chat["user_b"] is None:
-            chat["user_b"] = update.message.chat_id
-            chat["user_b_language"] = context.user_data.get("language", "en")
-            await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_joined"])
-            await context.bot.send_message(chat_id=chat["user_a"], text=TEXTS[chat["user_a_language"]]["partner_joined"])
+            chat["user_b"] = update.effective_chat.id
+            chat["user_b_language"] = user_language
+            await update.message.reply_text(TEXTS[user_language]["chat_joined"])
+            await context.bot.send_message(chat_id=chat["user_a"],
+                                           text=TEXTS[chat["user_a_language"]]["partner_joined"])
             context.user_data["waiting_for_chat_code"] = False
         else:
-            await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_already_full"])
+            await update.message.reply_text(TEXTS[user_language]["chat_already_full"])
+            context.user_data["waiting_for_chat_code"] = False
     else:
-        await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
+        await update.message.reply_text(TEXTS[user_language]["invalid_chat_code"])
+        context.user_data["waiting_for_chat_code"] = False
 
 async def exit_chat(update, context):
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
     chat_to_remove = None
     for chat_id, chat in context.bot_data.get("chats", {}).items():
         if chat["user_a"] == user_id or chat["user_b"] == user_id:
