@@ -8,7 +8,6 @@ import logging
 
 load_dotenv()
 
-# Доступные языки
 LANGUAGES = {
     "English": "en",
     "French": "fr",
@@ -19,7 +18,6 @@ LANGUAGES = {
     "Kyrgyz": "ky",
 }
 
-# Тексты на разных языках
 TEXTS = {
     "en": {
         "start": "Welcome! Please select your language:",
@@ -37,6 +35,7 @@ TEXTS = {
         "invalid_chat_code": "Invalid chat code.",
         "already_in_chat": "You are already in a chat. Use /exit_chat to leave the current chat.",
         "chat_not_found": "Chat not found. Please check the chat code and try again.",
+        "partner_joined": "Your partner has joined the chat!"
     },
     "fr": {
         "start": "Bienvenue! Veuillez sélectionner votre langue :",
@@ -53,7 +52,8 @@ TEXTS = {
         "chat_already_full": "Ce chat a déjà deux participants.",
         "invalid_chat_code": "Code de chat invalide.",
         "already_in_chat": "Vous êtes déjà dans un chat. Utilisez /exit_chat pour quitter le chat actuel.",
-        "chat_not_found": "Chat introuvable. Veuillez vérifier le code de chat и réessayer.",
+        "chat_not_found": "Chat introuvable. Veuillez vérifier le code de chat et réessayer.",
+        "partner_joined": "Votre partenaire a rejoint le chat!"
     },
     "es": {
         "start": "¡Bienvenido! Por favor seleccione su idioma:",
@@ -71,6 +71,7 @@ TEXTS = {
         "invalid_chat_code": "Código de chat inválido.",
         "already_in_chat": "Ya estás en un chat. Usa /exit_chat para salir del chat actual.",
         "chat_not_found": "Chat no encontrado. Por favor verifique el código de chat y vuelva a intentarlo.",
+        "partner_joined": "¡Tu compañero se ha unido al chat!"
     },
     "de": {
         "start": "Willkommen! Bitte wählen Sie Ihre Sprache aus:",
@@ -88,6 +89,7 @@ TEXTS = {
         "invalid_chat_code": "Ungültiger Chat-Code.",
         "already_in_chat": "Sie sind bereits in einem Chat. Verwenden Sie /exit_chat, um den aktuellen Chat zu verlassen.",
         "chat_not_found": "Chat nicht gefunden. Bitte überprüfen Sie den Chat-Code und versuchen Sie es erneut.",
+        "partner_joined": "Ihr Partner ist dem Chat beigetreten!"
     },
     "ko": {
         "start": "환영합니다! 언어를 선택하세요:",
@@ -105,6 +107,7 @@ TEXTS = {
         "invalid_chat_code": "유효하지 않은 채팅 코드입니다.",
         "already_in_chat": "이미 채팅방에 있습니다. 현재 채팅방을 나가려면 /exit_chat을 사용하세요.",
         "chat_not_found": "채팅을 찾을 수 없습니다. 채팅 코드를 확인하고 다시 시도하세요.",
+        "partner_joined": "파트너가 채팅에 참여했습니다!"
     },
     "ru": {
         "start": "Добро пожаловать! Пожалуйста, выберите язык:",
@@ -122,6 +125,7 @@ TEXTS = {
         "invalid_chat_code": "Неверный код чата.",
         "already_in_chat": "Вы уже находитесь в чате. Используйте /exit_chat, чтобы покинуть текущий чат.",
         "chat_not_found": "Чат не найден. Пожалуйста, проверьте код чата и попробуйте снова.",
+        "partner_joined": "Ваш партнер присоединился к чату!"
     },
     "ky": {
         "start": "Кош келиңиздер! Тилди тандаңыз:",
@@ -137,30 +141,23 @@ TEXTS = {
         "chat_joined": "Сиз чатка ийгиликтүү кошулдуңуз!",
         "chat_already_full": "Бул чатта эки өнөктөш бар.",
         "invalid_chat_code": "Жараксыз чат коду.",
-        "already_in_chat": "Сиз азырча чатта жоксуз. Азыркы чаттан чыгуу үчүн /exit_chat колдонуңуз.",
+        "already_in_chat": "Сиз буга чейин чаттасыз. Азыркы чаттан чыгуу үчүн /exit_chat колдонуңуз.",
         "chat_not_found": "Чат табылган жок. Чат кодун текшерип, кайра аракет кылыңыз.",
+        "partner_joined": "Өнөктөшүңүз чатка кошулду!"
     },
 }
 
-# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.chat_id
-    context.user_data["language"] = None  # Сбрасываем язык при запуске
-
-    # Клавиатура выбора языков
+    context.user_data["language"] = None
     keyboard = [[lang] for lang in LANGUAGES.keys()]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-
     try:
         await update.message.reply_text(TEXTS["en"]["start"], reply_markup=reply_markup)
     except Exception as e:
         logging.error(f"Error sending message: {e}")
 
-# Установка языка
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.chat_id
     chosen_language = update.message.text
-
     if chosen_language in LANGUAGES:
         context.user_data["language"] = LANGUAGES[chosen_language]
         language_code = LANGUAGES[chosen_language]
@@ -168,11 +165,7 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
 
-
 async def handle_message(update, context):
-    user_id = update.message.chat_id
-    text = update.message.text
-
     if context.user_data.get("waiting_for_chat_code"):
         await handle_chat_code_input(update, context)
         return
@@ -182,9 +175,9 @@ async def handle_message(update, context):
         await update.message.reply_text(TEXTS["en"]["not_set"])
         return
 
+    user_id = update.message.chat_id
     chat_data = next((chat for chat in context.bot_data.get("chats", {}).values()
                       if chat["user_a"] == user_id or chat["user_b"] == user_id), None)
-
     if not chat_data:
         await update.message.reply_text(TEXTS[user_language]["no_chat"])
         return
@@ -196,29 +189,24 @@ async def handle_message(update, context):
         target_user_id = chat_data["user_a"]
         target_language = chat_data.get("user_a_language", "en")
 
-    logging.info(f"User Language: {user_language}, Target Language: {target_language}, Target User ID: {target_user_id}")
-
     if target_user_id is None:
         await update.message.reply_text(TEXTS[user_language]["no_chat"])
         return
 
+    text = update.message.text
     try:
         translated_text = GoogleTranslator(source=user_language, target=target_language).translate(text)
         await context.bot.send_message(chat_id=target_user_id, text=translated_text)
     except Exception as e:
         logging.error(f"Translation error: {e}")
         await update.message.reply_text(TEXTS[user_language]["error"])
-# Создание чата
-
 
 async def start_chat(update, context):
     user_id = update.message.chat_id
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
-
-    chat_code = f"{random.randint(0, 9999):04d}"  # Генерация 4-значного кода
-
+    chat_code = f"{random.randint(0, 9999):04d}"
     if "chats" not in context.bot_data:
         context.bot_data["chats"] = {}
     context.bot_data["chats"][chat_code] = {
@@ -226,7 +214,6 @@ async def start_chat(update, context):
         "user_b": None,
         "user_a_language": context.user_data.get("language", "en")
     }
-
     await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_created"].format(chat_code))
 
 async def join_chat(update, context):
@@ -234,18 +221,14 @@ async def join_chat(update, context):
     if any(user_id in (chat["user_a"], chat["user_b"]) for chat in context.bot_data.get("chats", {}).values()):
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["already_in_chat"])
         return
-
     await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["enter_chat_code"])
     context.user_data["waiting_for_chat_code"] = True
 
-# Обработчик ввода кода чата
 async def handle_chat_code_input(update, context):
     if not context.user_data.get("waiting_for_chat_code"):
         return
 
     chat_code = update.message.text
-
-    # Проверка, что чат-код состоит только из цифр и имеет длину 4 символа
     if not chat_code.isdigit() or len(chat_code) != 4:
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
         return
@@ -257,13 +240,12 @@ async def handle_chat_code_input(update, context):
             chat["user_b_language"] = context.user_data.get("language", "en")
             await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_joined"])
             await context.bot.send_message(chat_id=chat["user_a"], text=TEXTS[chat["user_a_language"]]["partner_joined"])
+            context.user_data["waiting_for_chat_code"] = False
         else:
             await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["chat_already_full"])
     else:
         await update.message.reply_text(TEXTS[context.user_data.get("language", "en")]["invalid_chat_code"])
 
-    context.user_data["waiting_for_chat_code"] = False
-# Команда /exit_chat
 async def exit_chat(update, context):
     user_id = update.message.chat_id
     chat_to_remove = None
@@ -288,12 +270,9 @@ async def help_command(update, context):
         "Example: /start_chat"
     )
 
-# Основная функция
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
     application = Application.builder().token(token).build()
-
-    # Обработчики команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Regex(f"^({'|'.join(LANGUAGES.keys())})$"), set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -301,8 +280,6 @@ def main():
     application.add_handler(CommandHandler("join_chat", join_chat))
     application.add_handler(CommandHandler("exit_chat", exit_chat))
     application.add_handler(CommandHandler("help", help_command))
-
-    # Запуск вебхуков
     application.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8443)),
