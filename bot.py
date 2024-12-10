@@ -167,7 +167,7 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(TEXTS[language_code]["language_set"].format(chosen_language))
     else:
         await update.message.reply_text(TEXTS["en"]["choose_language"])
-    await start(update, context)
+    
 
 async def handle_message(update, context):
     user_id = update.message.chat_id
